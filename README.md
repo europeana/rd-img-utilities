@@ -54,27 +54,3 @@ Remove database
 docker-compose exec db dropdb -U myuser mydatabase
 ```
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-python3 scripts/query_database.py
-
-nohup python3 scripts/api.py &> /storage/logs/api.out &
-
-python3 scripts/query_database_api.py

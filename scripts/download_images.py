@@ -6,6 +6,7 @@ import pandas as pd
 import psycopg2
 from pathlib import Path
 import ibm_boto3
+import boto3
 from ibm_botocore.client import Config
 from functools import partial
 import argparse
@@ -57,12 +58,6 @@ def search_objects(row):
 
 if __name__ == "__main__":
 
-    COS_API_KEY_ID = os.environ['COS_API_KEY_ID']
-    COS_INSTANCE_CRN = os.environ['COS_INSTANCE_CRN']
-    COS_ENDPOINT = os.environ['COS_ENDPOINT']
-
-    processes = 6
-
     parser = argparse.ArgumentParser(description="Just an example",
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
@@ -79,14 +74,22 @@ if __name__ == "__main__":
     input_df = pd.read_csv(input_path)
     input_CHOs = input_df['europeana_id'].values
 
-    db = HashDatabase()
-    #print(db.size())
-
     print('Searching hashes...')
+    db = HashDatabase()
     objects = db.search(input_CHOs)
     print('Finished finding hashes')
     output_df = pd.DataFrame.from_dict(objects)
     print(f'Number of hashes found: {output_df.shape[0]}')
+
+
+    processes = 6
+
+    # Search IBM 
+    print('IBM')
+
+    COS_API_KEY_ID = os.environ['IBM_API_KEY_ID']
+    COS_INSTANCE_CRN = os.environ['IBM_INSTANCE_CRN']
+    COS_ENDPOINT = os.environ['IBM_ENDPOINT']
 
     client = ibm_boto3.resource("s3",
         ibm_api_key_id=COS_API_KEY_ID,
@@ -104,6 +107,29 @@ if __name__ == "__main__":
       result = list(tqdm(pool.imap(search_objects, rows)))
     finish_time = time.perf_counter()
     print("Finished, it took {} minutes".format((finish_time-start_time)/60.0))
+
+
+    # Search AWS
+
+    print('AWS')
+
+    aws_access_key_id = os.environ['AWS_ACCESS_KEY_ID']
+    aws_secret_access_key = os.environ['AWS_SECRET_ACCESS_KEY']
+
+    bucket_name = 'europeana-thumbnails-production'
+
+    s3 = boto3.client('s3', 
+                    aws_access_key_id=aws_access_key_id, 
+                    aws_secret_access_key=aws_secret_access_key)
+
+    response = s3.list_objects_v2(Bucket=bucket_name)
+
+
+
+
+
+
+
 
 
 

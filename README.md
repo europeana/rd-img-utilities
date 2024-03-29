@@ -22,13 +22,21 @@ nohup python3 scripts/build_db.py &> /storage/logs/build_db.out &
 ```
 ## Download images
 
-add IBM cloud credentials as environment variables
+to do: add AWS credentials
+to do: add MEDIUM large prefix
+to do: parallelize AWS download
+to do: only search those images not found in IBM
+
+add IBM and AWS cloud credentials as environment variables
 
 ```shell
-export COS_API_KEY_ID="your_COS_API_KEY_ID_here"
-export COS_INSTANCE_CRN="your_COS_INSTANCE_CRN_here"
-export COS_ENDPOINT="your_COS_ENDPOINT_here"
+export IBM_API_KEY_ID="your_COS_API_KEY_ID_here"
+export IBM_INSTANCE_CRN="your_COS_INSTANCE_CRN_here"
+export IBM_ENDPOINT="your_COS_ENDPOINT_here"
+export AWS_ACCESS_KEY_ID="your_AWS_ACCESS_KEY_ID_here"
+export AWS_SECRET_ACCESS_KEY="your_AWS_SECRET_ACCESS_KEY_here"
 ```
+
 
 the input should be a csv file with a column 'europeana_id'
 

@@ -22,10 +22,9 @@ nohup python3 scripts/build_db.py &> /storage/logs/build_db.out &
 ```
 ## Download images
 
-to do: add AWS credentials
-to do: add MEDIUM large prefix
-to do: parallelize AWS download
-to do: only search those images not found in IBM
+to do: add sufix as an input parameter
+to do: improve logging
+to do: refactor code to make functions for IBM and AWS
 
 add IBM and AWS cloud credentials as environment variables
 
@@ -41,7 +40,13 @@ export AWS_SECRET_ACCESS_KEY="your_AWS_SECRET_ACCESS_KEY_here"
 the input should be a csv file with a column 'europeana_id'
 
 ```shell
-nohup python3 scripts/download_images.py --input /storage/data/sample.csv --output /storage/data/thumbnails2 &> /storage/logs/download_images.out &
+nohup python3 scripts/download_images.py --input /storage/data/small_sample.csv --output /storage/data/thumbnails_small &> /storage/logs/download_images.out &
+```
+
+Jupyter notebook 
+
+```shell
+jupyter notebook --port 5053 --ip 0.0.0.0 --no-browser --allow-root
 ```
 
 

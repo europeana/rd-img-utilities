@@ -2,13 +2,13 @@ import fire
 import time
 import os
 from multiprocessing import Pool
+from functools import partial
 import pandas as pd
 import psycopg2
 from pathlib import Path
 import ibm_boto3
 import boto3
 from ibm_botocore.client import Config
-from functools import partial
 import argparse
 from tqdm import tqdm
 
@@ -43,8 +43,8 @@ class HashDatabase:
         return objects
 
 
-def download_objects_IBM_function(row):
-    suffix = 'MEDIUM'
+def download_objects_IBM_function(row, suffix = 'MEDIUM'):
+    #suffix = 'MEDIUM'
     prefix = row['ThumbnailID']
     europeana_id = row['ProvidedCHO'].replace('/','[ph]')
     object_summary_iterator = bucket.objects.filter(Prefix = prefix)
@@ -59,9 +59,9 @@ def download_objects_IBM_function(row):
         except:
             pass
 
-def download_objects_AWS_function(row):
+def download_objects_AWS_function(row, suffix = 'MEDIUM'):
     bucket_name = 'europeana-thumbnails-production'
-    suffix = 'MEDIUM'
+    #suffix = 'MEDIUM'
     prefix = row['ThumbnailID']
     europeana_id = row['ProvidedCHO'].replace('/','[ph]')
 
@@ -83,9 +83,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("--input", type=str, required=True)
     parser.add_argument("--output", type=str, required=True)
+    parser.add_argument("--suffix", type=str, const='MEDIUM')
     args = parser.parse_args()
 
-    suffix = 'MEDIUM'
+    suffix = args.suffix
 
     input_path = args.input
     input_df = pd.read_csv(input_path)
@@ -100,8 +101,8 @@ if __name__ == "__main__":
     db = HashDatabase()
     objects = db.search(input_CHOs)
     print('Finished finding hashes')
-    output_df = pd.DataFrame.from_dict(objects)
-    print(f'Number of hashes found: {output_df.shape[0]}')
+    hash_df = pd.DataFrame.from_dict(objects)
+    print(f'Number of hashes found: {hash_df.shape[0]}')
 
 
     processes = 6
@@ -122,21 +123,21 @@ if __name__ == "__main__":
     )
 
     bucket = client.Bucket('europeana-thumbnails-production')
-    rows = [row for index, row in output_df.iterrows()]
+    rows = [row for index, row in hash_df.iterrows()]
     print('Searching and downloading images...')
     start_time = time.perf_counter()
     with Pool(processes=processes) as pool:
-      result = list(tqdm(pool.imap(download_objects_IBM_function, rows)))
+      result = list(tqdm(pool.imap(partial(download_objects_IBM_function,suffix), rows)))
     finish_time = time.perf_counter()
     ibm_time = (finish_time-start_time)/60.0
     print("Finished, it took {} minutes".format(ibm_time))
 
 
-    # Filter output_df with found_filenames
+    # Filter hash_df with found_filenames
     found_filenames = [file.stem.replace(f'-{suffix}','') for file in output_path.iterdir() if file.is_file()]
     print(f'Images downloaded from IBM: {len(found_filenames)}')
-    output_df = output_df.loc[output_df['ThumbnailID'].apply(lambda x: x not in found_filenames)]
-    print(f'Images to search in AWS: {output_df.shape[0]}')
+    hash_df = hash_df.loc[hash_df['ThumbnailID'].apply(lambda x: x not in found_filenames)]
+    print(f'Images to search in AWS: {hash_df.shape[0]}')
     
 
     # Search AWS
@@ -150,11 +151,11 @@ if __name__ == "__main__":
                     aws_access_key_id=aws_access_key_id, 
                     aws_secret_access_key=aws_secret_access_key)
 
-    rows = [row for index, row in output_df.iterrows()]
+    rows = [row for index, row in hash_df.iterrows()]
     print('Searching and downloading images...')
     start_time = time.perf_counter()
     with Pool(processes=processes) as pool:
-      result = list(tqdm(pool.imap(download_objects_AWS_function, rows)))
+      result = list(tqdm(pool.imap(partial(download_objects_AWS_function,suffix), rows)))
     finish_time = time.perf_counter()
     aws_time = (finish_time-start_time)/60.0
     print("Finished, it took {} minutes".format(aws_time))

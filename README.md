@@ -22,18 +22,30 @@ nohup python3 scripts/build_db.py &> /storage/logs/build_db.out &
 ```
 ## Download images
 
-add IBM cloud credentials as environment variables
+
+to do: merge branch to main
+
+Add IBM and AWS cloud credentials as environment variables
 
 ```shell
-export COS_API_KEY_ID="your_COS_API_KEY_ID_here"
-export COS_INSTANCE_CRN="your_COS_INSTANCE_CRN_here"
-export COS_ENDPOINT="your_COS_ENDPOINT_here"
+export IBM_API_KEY_ID="your_COS_API_KEY_ID_here"
+export IBM_INSTANCE_CRN="your_COS_INSTANCE_CRN_here"
+export IBM_ENDPOINT="your_COS_ENDPOINT_here"
+export AWS_ACCESS_KEY_ID="your_AWS_ACCESS_KEY_ID_here"
+export AWS_SECRET_ACCESS_KEY="your_AWS_SECRET_ACCESS_KEY_here"
 ```
+
 
 the input should be a csv file with a column 'europeana_id'
 
 ```shell
-nohup python3 scripts/download_images.py --input /storage/data/sample.csv --output /storage/data/thumbnails2 &> /storage/logs/download_images.out &
+nohup python3 scripts/download_images.py --input /storage/data/small_sample.csv --output /storage/data/thumbnails_test &> /storage/logs/download_images.out &
+```
+
+Jupyter notebook 
+
+```shell
+jupyter notebook --port 5053 --ip 0.0.0.0 --no-browser --allow-root
 ```
 
 

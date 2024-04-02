@@ -9,3 +9,4 @@ pyeuropeana
 ibm-cos-sdk
 boto3
 jupyter
+Pillow

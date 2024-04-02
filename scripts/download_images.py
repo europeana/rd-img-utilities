@@ -44,7 +44,6 @@ class HashDatabase:
 
 
 def download_objects_IBM_function(row, suffix = 'MEDIUM'):
-    #suffix = 'MEDIUM'
     prefix = row['ThumbnailID']
     europeana_id = row['ProvidedCHO'].replace('/','[ph]')
     object_summary_iterator = bucket.objects.filter(Prefix = prefix)
@@ -61,7 +60,6 @@ def download_objects_IBM_function(row, suffix = 'MEDIUM'):
 
 def download_objects_AWS_function(row, suffix = 'MEDIUM'):
     bucket_name = 'europeana-thumbnails-production'
-    #suffix = 'MEDIUM'
     prefix = row['ThumbnailID']
     europeana_id = row['ProvidedCHO'].replace('/','[ph]')
 
@@ -83,11 +81,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("--input", type=str, required=True)
     parser.add_argument("--output", type=str, required=True)
-    parser.add_argument("--suffix", type=str, const='MEDIUM')
+    parser.add_argument("--suffix", type=str, nargs = '?', const='MEDIUM')
+    parser.add_argument("--processes", type=int, nargs = '?', const=6)
     args = parser.parse_args()
 
+    processes = args.processes
     suffix = args.suffix
-
+    
     input_path = args.input
     input_df = pd.read_csv(input_path)
     input_CHOs = input_df['europeana_id'].values
@@ -95,7 +95,6 @@ if __name__ == "__main__":
     output_path = args.output
     output_path = Path(output_path)
     output_path.mkdir(exist_ok = True, parents = True)
-
 
     print('Searching hashes in database...')
     db = HashDatabase()
@@ -105,11 +104,8 @@ if __name__ == "__main__":
     print(f'Number of hashes found: {hash_df.shape[0]}')
 
 
-    processes = 6
-
-
     # Search IBM 
-    print('IBM')
+    print('Searching and downloading images in IBM...')
 
     COS_API_KEY_ID = os.environ['IBM_API_KEY_ID']
     COS_INSTANCE_CRN = os.environ['IBM_INSTANCE_CRN']
@@ -124,16 +120,16 @@ if __name__ == "__main__":
 
     bucket = client.Bucket('europeana-thumbnails-production')
     rows = [row for index, row in hash_df.iterrows()]
-    print('Searching and downloading images...')
+    
     start_time = time.perf_counter()
     with Pool(processes=processes) as pool:
-      result = list(tqdm(pool.imap(partial(download_objects_IBM_function,suffix), rows)))
+      result = list(tqdm(pool.imap(partial(download_objects_IBM_function,suffix=suffix), rows)))
     finish_time = time.perf_counter()
     ibm_time = (finish_time-start_time)/60.0
     print("Finished, it took {} minutes".format(ibm_time))
 
 
-    # Filter hash_df with found_filenames
+    # Filter hash_df with already downloaded images
     found_filenames = [file.stem.replace(f'-{suffix}','') for file in output_path.iterdir() if file.is_file()]
     print(f'Images downloaded from IBM: {len(found_filenames)}')
     hash_df = hash_df.loc[hash_df['ThumbnailID'].apply(lambda x: x not in found_filenames)]
@@ -141,8 +137,7 @@ if __name__ == "__main__":
     
 
     # Search AWS
-
-    print('AWS')
+    print('Searching and downloading images in AWS...')
 
     aws_access_key_id = os.environ['AWS_ACCESS_KEY_ID']
     aws_secret_access_key = os.environ['AWS_SECRET_ACCESS_KEY']
@@ -152,13 +147,15 @@ if __name__ == "__main__":
                     aws_secret_access_key=aws_secret_access_key)
 
     rows = [row for index, row in hash_df.iterrows()]
-    print('Searching and downloading images...')
+    
     start_time = time.perf_counter()
     with Pool(processes=processes) as pool:
-      result = list(tqdm(pool.imap(partial(download_objects_AWS_function,suffix), rows)))
+      result = list(tqdm(pool.imap(partial(download_objects_AWS_function,suffix=suffix), rows)))
     finish_time = time.perf_counter()
     aws_time = (finish_time-start_time)/60.0
     print("Finished, it took {} minutes".format(aws_time))
+
+
 
     print("Total time: {} minutes".format(ibm_time+aws_time))
 

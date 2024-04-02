@@ -53,12 +53,11 @@ def download_objects_IBM_function(row):
         try:
             object = client.Object("europeana-thumbnails-production", item.key)
             if object.key.endswith(suffix):
-                object.download_file(output_path.joinpath(f'{europeana_id}.jpg'))
+                object.download_file(output_path.joinpath(f'{item.key}.jpg'))
                 found_filenames.append(item.key)
             
         except:
             pass
-    return found_filenames
 
 def download_objects_AWS_function(row):
     bucket_name = 'europeana-thumbnails-production'
@@ -72,13 +71,11 @@ def download_objects_AWS_function(row):
         try:
             file_name = item['Key']
             if file_name.endswith(suffix):
-                download_path = output_path.joinpath(f'{europeana_id}.jpg')
+                download_path = output_path.joinpath(f'{item.key}.jpg')
                 s3.download_file(bucket_name, file_name, download_path)
                 found_filenames.append(file_name)
         except:
             pass
-
-    return found_filenames
 
 
 if __name__ == "__main__":
@@ -87,6 +84,8 @@ if __name__ == "__main__":
     parser.add_argument("--input", type=str, required=True)
     parser.add_argument("--output", type=str, required=True)
     args = parser.parse_args()
+
+    suffix = 'MEDIUM'
 
     input_path = args.input
     input_df = pd.read_csv(input_path)
@@ -107,8 +106,6 @@ if __name__ == "__main__":
 
     processes = 6
 
-    # input: output_df, processes
-    # output: found_filenames
 
     # Search IBM 
     print('IBM')
@@ -129,21 +126,19 @@ if __name__ == "__main__":
     print('Searching and downloading images...')
     start_time = time.perf_counter()
     with Pool(processes=processes) as pool:
-      found_filenames = list(tqdm(pool.imap(download_objects_IBM_function, rows)))
+      result = list(tqdm(pool.imap(download_objects_IBM_function, rows)))
     finish_time = time.perf_counter()
-    print("Finished, it took {} minutes".format((finish_time-start_time)/60.0))
-
+    ibm_time = (finish_time-start_time)/60.0
+    print("Finished, it took {} minutes".format(ibm_time))
 
 
     # Filter output_df with found_filenames
-
+    found_filenames = [file.stem.replace(f'-{suffix}','') for file in output_path.iterdir() if file.is_file()]
+    print(f'Images downloaded from IBM: {len(found_filenames)}')
     output_df = output_df.loc[output_df['ThumbnailID'].apply(lambda x: x not in found_filenames)]
-
-    print(len(found_filenames))
-
-    print(output_df.shape)
-
+    print(f'Images to search in AWS: {output_df.shape[0]}')
     
+
     # Search AWS
 
     print('AWS')
@@ -159,9 +154,12 @@ if __name__ == "__main__":
     print('Searching and downloading images...')
     start_time = time.perf_counter()
     with Pool(processes=processes) as pool:
-      found_filenames = list(tqdm(pool.imap(download_objects_AWS_function, rows)))
+      result = list(tqdm(pool.imap(download_objects_AWS_function, rows)))
     finish_time = time.perf_counter()
-    print("Finished, it took {} minutes".format((finish_time-start_time)/60.0))
+    aws_time = (finish_time-start_time)/60.0
+    print("Finished, it took {} minutes".format(aws_time))
+
+    print("Total time: {} minutes".format(ibm_time+aws_time))
 
 
 

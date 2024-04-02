@@ -22,11 +22,10 @@ nohup python3 scripts/build_db.py &> /storage/logs/build_db.out &
 ```
 ## Download images
 
-to do: add sufix as an input parameter
-to do: improve logging
-to do: refactor code to make functions for IBM and AWS
 
-add IBM and AWS cloud credentials as environment variables
+to do: merge branch to main
+
+Add IBM and AWS cloud credentials as environment variables
 
 ```shell
 export IBM_API_KEY_ID="your_COS_API_KEY_ID_here"
@@ -40,7 +39,7 @@ export AWS_SECRET_ACCESS_KEY="your_AWS_SECRET_ACCESS_KEY_here"
 the input should be a csv file with a column 'europeana_id'
 
 ```shell
-nohup python3 scripts/download_images.py --input /storage/data/small_sample.csv --output /storage/data/thumbnails_small &> /storage/logs/download_images.out &
+nohup python3 scripts/download_images.py --input /storage/data/small_sample.csv --output /storage/data/thumbnails_test &> /storage/logs/download_images.out &
 ```
 
 Jupyter notebook 

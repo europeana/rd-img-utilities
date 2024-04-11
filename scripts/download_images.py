@@ -11,6 +11,7 @@ import boto3
 from ibm_botocore.client import Config
 import argparse
 from tqdm import tqdm
+import concurrent.futures
 
 class HashDatabase:
     def __init__(self):
@@ -32,9 +33,16 @@ class HashDatabase:
         return n_rows
 
     def search(self,input_CHOs):
-        placeholders = ', '.join(['%s'] * len(input_CHOs))
-        self.cur.execute(f'SELECT * FROM hash_mapping WHERE "ProvidedCHO" IN ({placeholders})',input_CHOs)
-        rows = self.cur.fetchall()
+        
+        rows = []
+        batch_size = 50000
+
+        for i in range(0, len(input_CHOs), batch_size):
+            batch = input_CHOs[i:i+batch_size]
+            placeholders = ', '.join(['%s'] * len(batch))
+            query = f'SELECT * FROM hash_mapping WHERE "ProvidedCHO" IN ({placeholders})'
+            self.cur.execute(query, batch)
+            rows += self.cur.fetchall()
 
         objects = []
         for row in rows:
@@ -47,14 +55,12 @@ def download_objects_IBM_function(row, suffix = 'MEDIUM'):
     prefix = row['ThumbnailID']
     europeana_id = row['ProvidedCHO'].replace('/','[ph]')
     object_summary_iterator = bucket.objects.filter(Prefix = prefix)
-    found_filenames = []
     for item in object_summary_iterator:
         try:
             object = client.Object("europeana-thumbnails-production", item.key)
             if object.key.endswith(suffix):
-                object.download_file(output_path.joinpath(f'{item.key}.jpg'))
-                found_filenames.append(item.key)
-            
+                fname = europeana_id
+                object.download_file(output_path.joinpath(f'{fname}.jpg'))            
         except:
             pass
 
@@ -64,16 +70,32 @@ def download_objects_AWS_function(row, suffix = 'MEDIUM'):
     europeana_id = row['ProvidedCHO'].replace('/','[ph]')
 
     object_summary_iterator = s3.list_objects_v2(Bucket=bucket_name, Prefix=prefix)
-    found_filenames = []
     for item in object_summary_iterator.get('Contents', []):
         try:
             file_name = item['Key']
             if file_name.endswith(suffix):
-                download_path = output_path.joinpath(f'{item.key}.jpg')
+                fname = europeana_id
+                download_path = output_path.joinpath(f'{fname}.jpg')
                 s3.download_file(bucket_name, file_name, download_path)
-                found_filenames.append(file_name)
         except:
             pass
+
+
+def process_file(entry):
+    if entry.is_file():
+        return entry.name.split('.')[0].replace('[ph]', '/')
+    return None
+
+def get_downloaded_ids(output_path):
+    downloaded_ids = []
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        futures = {executor.submit(process_file, entry) for entry in os.scandir(output_path)}
+        for future in concurrent.futures.as_completed(futures):
+            result = future.result()
+            if result:
+                downloaded_ids.append(result)
+    return downloaded_ids
+
 
 
 if __name__ == "__main__":
@@ -83,6 +105,7 @@ if __name__ == "__main__":
     parser.add_argument("--output", type=str, required=True)
     parser.add_argument("--suffix", type=str, nargs = '?', const='MEDIUM')
     parser.add_argument("--processes", type=int, nargs = '?', const=6)
+    parser.add_argument("--sample", type=float, nargs = '?', const=1.0)
     args = parser.parse_args()
 
     processes = args.processes
@@ -90,7 +113,11 @@ if __name__ == "__main__":
     
     input_path = args.input
     input_df = pd.read_csv(input_path)
+    if args.sample != 1.0:
+        input_df = input_df.sample(frac = args.sample)
+
     input_CHOs = input_df['europeana_id'].values
+
 
     output_path = args.output
     output_path = Path(output_path)
@@ -103,6 +130,9 @@ if __name__ == "__main__":
     hash_df = pd.DataFrame.from_dict(objects)
     print(f'Number of hashes found: {hash_df.shape[0]}')
 
+    dowloaded_ids = get_downloaded_ids(output_path)
+    hash_df = hash_df.loc[hash_df['ProvidedCHO'].apply(lambda x: x not in dowloaded_ids)]
+    print(f'Number of images to download: {hash_df.shape[0]}')
 
     # Search IBM 
     print('Searching and downloading images in IBM...')
@@ -130,9 +160,9 @@ if __name__ == "__main__":
 
 
     # Filter hash_df with already downloaded images
-    found_filenames = [file.stem.replace(f'-{suffix}','') for file in output_path.iterdir() if file.is_file()]
-    print(f'Images downloaded from IBM: {len(found_filenames)}')
-    hash_df = hash_df.loc[hash_df['ThumbnailID'].apply(lambda x: x not in found_filenames)]
+    dowloaded_ids = get_downloaded_ids(output_path)
+    hash_df = hash_df.loc[hash_df['ProvidedCHO'].apply(lambda x: x not in dowloaded_ids)]
+    print(f'Images downloaded from IBM: {len(dowloaded_ids)}')
     print(f'Images to search in AWS: {hash_df.shape[0]}')
     
 
@@ -154,8 +184,6 @@ if __name__ == "__main__":
     finish_time = time.perf_counter()
     aws_time = (finish_time-start_time)/60.0
     print("Finished, it took {} minutes".format(aws_time))
-
-
 
     print("Total time: {} minutes".format(ibm_time+aws_time))
 

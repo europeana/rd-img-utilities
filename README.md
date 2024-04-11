@@ -36,7 +36,7 @@ export AWS_SECRET_ACCESS_KEY="your_AWS_SECRET_ACCESS_KEY_here"
 the input should be a csv file with a column 'europeana_id'
 
 ```shell
-nohup python3 scripts/download_images.py --suffix 'LARGE' --input /storage/data/small_sample.csv --output /storage/data/thumbnails_LARGE &> /storage/logs/download_images.out &
+nohup python3 -u scripts/download_images.py --sample 1.0 --suffix 'LARGE' --input /storage/data/sample_inference.csv --output /storage/data/inference &> /storage/logs/download_images.out &
 ```
 
 Jupyter notebook 
@@ -45,6 +45,11 @@ Jupyter notebook
 jupyter notebook --port 5053 --ip 0.0.0.0 --no-browser --allow-root
 ```
 
+delete images
+
+```shell
+nohup python3 -u scripts/remove_images.py --input /storage/data/inference &> /storage/logs/remove_images.out &
+```
 
 ## Database operations
 

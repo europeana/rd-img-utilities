@@ -106,6 +106,7 @@ if __name__ == "__main__":
     parser.add_argument("--suffix", type=str, nargs = '?', const='MEDIUM')
     parser.add_argument("--processes", type=int, nargs = '?', const=6)
     parser.add_argument("--sample", type=float, nargs = '?', const=1.0)
+    parser.add_argument("--labeled", type=bool, nargs = '?', const=False)
     args = parser.parse_args()
 
     processes = args.processes
